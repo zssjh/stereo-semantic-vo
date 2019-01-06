@@ -1,0 +1,1 @@
+/usr/bin/c++  -fPIC -msse3 -O3 -DNDEBUG  -shared -Wl,-soname,liblibelas.so -o ../lib/liblibelas.so CMakeFiles/libelas.dir/src/descriptor.cpp.o CMakeFiles/libelas.dir/src/elas.cpp.o CMakeFiles/libelas.dir/src/filter.cpp.o CMakeFiles/libelas.dir/src/matrix.cpp.o CMakeFiles/libelas.dir/src/triangle.cpp.o 

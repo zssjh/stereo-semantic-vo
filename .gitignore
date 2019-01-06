@@ -1,0 +1,8 @@
+Thirdparty/DBoW2/lib/
+Thirdparty/darknet/build/
+Thirdparty/g2o/lib/
+Vocabulary/ORBvoc.txt
+cmake-build-debug/
+*~
+lib/
+
