@@ -44,24 +44,14 @@ frame::frame( cv::Mat &imLeft,  cv::Mat &imRight, cv::Mat &imdepth,double &time_
     rightimg=imRight.clone();
     width=imLeft.cols;
     height=imLeft.rows;
-    SetPose(cv::Mat::eye(4,4,CV_32F));
-
-
-    featuredetect(imLeft);
-
-
-    N = keypoints_l.size();
+    N = 500;
     keypoints_r.reserve(N);
     MapPoints = vector<mappoint*>(N,static_cast<mappoint*>(NULL));
     inlier = vector<bool>(N,false);
     match_score=vector<float>(N,-1);
     depthimg = cv::Mat(height,width,CV_32F,-1);
     dispimg = cv::Mat(height,width,CV_32F,-1);
-
-    dispimg=ElasMatch(imLeft,imRight);//// SGBM计算的CV_16s，转化为CV_8U
-    computekeypoint_r();
-
-    disp2Depth(bf);
+    SetPose(cv::Mat::eye(4,4,CV_32F));
 }
 
 void frame::SetPose( cv::Mat mTcw)
@@ -241,12 +231,29 @@ void frame::createmappoint(set<mappoint*> &localmap)
         mappoint *mp=MapPoints[i];
         if (!mp)
         {
+            bool dynamic=false;
             num++;
 //            cout<<"creatmappoint"<<endl;
             const float u = keypoints_l[i].pt.x;
             const float v = keypoints_l[i].pt.y;
             const float z = depthimg.at<float>(v,u);
-            if (z > 0) {
+            for (int j = 0; j < boxes.size(); ++j) {
+
+                int x0=boxes[j].tl().x;
+                int y0=boxes[j].tl().y;
+                int x1=boxes[j].br().x;
+                int y1=boxes[j].br().y;
+                if(u>x0&&u<x1&&v>y0&&v<y1)
+                {
+                    dynamic=true;
+                    break;
+                }
+            }
+
+            if(dynamic)
+                continue;
+
+            if (z > 0&&!dynamic) {
                 cv::Mat x3D = UnprojectStereo(u,v,z);
                 mappoint *newmp = new mappoint(x3D,this,i);////什么时候定义*,*的时候是->
                 newmp->AddObservation(this,i);

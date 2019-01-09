@@ -7,6 +7,8 @@
 
 #if !defined(YOLO_7E0_05_17_YOLOV3_H_INCLUDED)
 #define YOLO_7E0_05_17_YOLOV3_H_INCLUDED
+
+#include "iostream"
 #include<fstream>
 #include<string>
 #include<vector>
@@ -159,6 +161,7 @@ public:
         float result[6000] = { 0 };
         image im = ipl_to_image(img);
         int n = YoloDetectFromImage(im.data,im.w,im.h,im.c,this->m_network, threshold, result, 6000);
+//        std::cout<<im.w<<"   "<<im.h<<std::endl;
         free(im.data);
         std::vector<BoxSE> boxes;
         for (int i = 0; i < n; i++) {

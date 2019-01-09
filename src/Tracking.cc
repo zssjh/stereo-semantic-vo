@@ -40,6 +40,7 @@ Tracking::Tracking(const string &strSettingPath):local(false)//// 成员变量�
 
 void Tracking::init()
 {
+    bool dynamic=false;
     currentframe->SetPose(cv::Mat::eye(4,4,CV_32F));
 
     for (int i = 0; i <currentframe->N ; ++i) {
@@ -47,8 +48,24 @@ void Tracking::init()
         const float v = currentframe->keypoints_l[i].pt.y;
         const float z = currentframe->depthimg.at<float>(v,u);
 
-        if(z>0)
+        if(currentframe->boxes.size()!=0)
         {
+            for (int j = 0; j < currentframe->boxes.size(); ++j) {
+
+                int x0=currentframe->boxes[j].tl().x;
+                int y0=currentframe->boxes[j].tl().y;
+                int x1=currentframe->boxes[j].br().x;
+                int y1=currentframe->boxes[j].br().y;
+                if(u>x0&&u<x1&&v>y0&&v<y1)
+                {
+                    dynamic=true;
+                    break;
+                }
+            }
+         }
+        if(z>0&&!dynamic)
+        {
+
             cv::Mat x3D=currentframe->UnprojectStereo(u,v,z);
             mappoint* newmp=new mappoint(x3D,currentframe,i);////什么时候定义*,*的时候是->
             newmp->AddObservation(currentframe,i);
@@ -134,7 +151,6 @@ void Tracking::Tracklastframe()
     cv::solvePnPRansac ( pts3d, pts2d, K, cv::Mat(), rvec, tvec, false, 100, 1.0, 0.99, inliers );////double
     std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
     double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
-    cout<<"pnp:"<<ttrack<<endl;
 
     int num_inliers_ = inliers.rows;
     inlier_ratio=(float)num_inliers_/(float)pts2d.size();
@@ -229,9 +245,12 @@ void Tracking::Setsemanticer(Semantic* ser)
 
     Semanticer->Insertframe(currentframe);
 
-//    Semanticer->InsertImg(imLeft);
-
+    currentframe->featuredetect(imLeft);
+    currentframe->dispimg=currentframe->ElasMatch(imLeft,imRight);//// SGBM计算的CV_16s，转化为CV_8U
+    currentframe->computekeypoint_r();
+    currentframe->disp2Depth(bf);
     currentframe->id=frame_num;
+
     Tracklastframe();
 
     SaveTrajectoryAndDraw(f,f2);
@@ -240,6 +259,7 @@ void Tracking::Setsemanticer(Semantic* ser)
     lastframe = frame(currentframe);
     lastframe.createmappoint(LocalMapPoints);
     frame_num++;
+
 }
 
 

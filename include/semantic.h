@@ -19,7 +19,6 @@ public:
     void Run();
     void SetTracker(Tracking *pTracker);
     void Insertframe(frame *cur_frame);
-    void InsertImg(cv::Mat &img);
     bool Checknewframe();
     YOLOv3 detector;
 

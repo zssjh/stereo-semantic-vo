@@ -51,42 +51,42 @@ int pnpmatch::poseEstimationPnP(frame *CurrentFrame,frame &LastFrame,cv::Mat &K)
             int bestDist = 256;
             int secondBestDist=256;
             int bestIdx2 = -1;
-//
-//            while (1)
-//            {
-//                if(CurrentFrame->have_detected)
-//                {
 
-                    for (int j = 0; j <KP.size() ; ++j)
+            for (int j = 0; j <KP.size() ; ++j)
+            {
+                bool dynamic=false;
+                cv::circle(CurrentFrame->leftimg,KP[j].pt,5,cv::Scalar(0,0,256),-1);
+                mappoint *mp_j=CurrentFrame->MapPoints[j];
+                if(mp_j)
+                    continue;
+
+                for (int k = 0; k < CurrentFrame->boxes.size(); ++k) {
+
+                    int x0=CurrentFrame->boxes[k].tl().x;
+                    int y0=CurrentFrame->boxes[k].tl().y;
+                    int x1=CurrentFrame->boxes[k].br().x;
+                    int y1=CurrentFrame->boxes[k].br().y;
+                    if(KP[j].pt.x>x0&&KP[j].pt.x<x1&&KP[j].pt.y>y0&&KP[j].pt.y<y1)
                     {
-                        if(CurrentFrame->id>=467)
-                        {
-//                            cout<<KP[j].pt<<endl;
-                            if(KP[j].pt.x<300)
-                            {
-                                cout<<"剔除"<<endl;
-                                continue;
-                            }
-                        }
-              cv::circle(CurrentFrame->leftimg,KP[j].pt,5,cv::Scalar(0,0,256),-1);
-                        mappoint *mp_j=CurrentFrame->MapPoints[j];
-                        if(mp_j)
-                            continue;
-
-                        const cv::Mat &d = CurrentFrame->f_descriptor.row(j);
-                        const int dist = DescriptorDistance(dMP,d);
-
-                        if(dist<bestDist)
-                        {
-                            secondBestDist=bestDist;
-                            bestDist=dist;
-                            bestIdx2=j;
-                        }
+                        dynamic=true;
+//                        cout<<"dynamic"<<endl;
+                        break;
                     }
-//                    break;
-//                }
-//            }
-//
+                }
+
+                if(dynamic)
+                    continue;
+
+                const cv::Mat &d = CurrentFrame->f_descriptor.row(j);
+                const int dist = DescriptorDistance(dMP,d);
+
+                if(dist<bestDist)
+                {
+                    secondBestDist=bestDist;
+                    bestDist=dist;
+                    bestIdx2=j;
+                }
+            }
             cv::Point2f cur=CurrentFrame->keypoints_l[bestIdx2].pt;
             cv::Point2f last=LastFrame.keypoints_l[i].pt;
             CurrentFrame->match_score[i]=(float(secondBestDist)/float(bestDist));
@@ -124,12 +124,8 @@ int pnpmatch::poseEstimationPnP(frame *CurrentFrame,frame &LastFrame,cv::Mat &K)
 //        }
 
     }
-    if(CurrentFrame->id>465)
-    {
-        cv::imshow("result",outImg);
-        cv::waitKey(0);
-    }
-
+//    cv::imshow("result",outImg);
+//    cv::waitKey(100);
 
     return inlier_ratio;
 

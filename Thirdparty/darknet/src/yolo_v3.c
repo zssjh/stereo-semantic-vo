@@ -7,10 +7,7 @@ int YoloDetect(image img, int* _net, float threshold, float* result, int result_
 	image sized = letterbox_image(im, net->w, net->h);
 
 	layer l = net->layers[net->n - 1];
-
-
 	network_predict(net, sized.data);
-
 
 	int nboxes = 0;
 	detection *dets = get_network_boxes(net, im.w, im.h, threshold, 0.0F, 0, 1, &nboxes);
@@ -37,8 +34,8 @@ int YoloDetect(image img, int* _net, float threshold, float* result, int result_
 				result[result_idx * 6 + 1] = prob;
 				result[result_idx * 6 + 2] = left;
 				result[result_idx * 6 + 3] = top;
-				result[result_idx * 6 + 4] = right - left;
-				result[result_idx * 6 + 5] = bot - top;
+				result[result_idx * 6 + 4] = right - left;////b.w*1241
+				result[result_idx * 6 + 5] = bot - top;////b.h*376
 				result_idx++;
 			}
 		}
