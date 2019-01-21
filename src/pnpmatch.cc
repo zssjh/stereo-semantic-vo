@@ -28,21 +28,77 @@ int pnpmatch::DescriptorDistance(const cv::Mat &a, const cv::Mat &b)/// h文件�
 }
 
 
-int pnpmatch::poseEstimationPnP(frame *CurrentFrame,frame &LastFrame,cv::Mat &K)
+int pnpmatch::poseEstimationPnP(frame *CurrentFrame,frame &LastFrame,set<mappoint*> &localmappoints,cv::Mat &mVelocity,cv::Mat &K)
 {
     float inlier_ratio=0;
-    int matches=0;
+    cv::Mat outImg(CurrentFrame->detectimg.rows+LastFrame.detectimg.rows+1,CurrentFrame->detectimg.cols,CurrentFrame->detectimg.type());
+    vector<cv::Point2f> cur_po;
+    vector<cv::Point2f> last_po;
 
-    cv::Mat outImg(CurrentFrame->leftimg.rows+LastFrame.leftimg.rows+1,CurrentFrame->leftimg.cols,CurrentFrame->leftimg.type());
-    vector<cv::Point2f> cur_po;vector<int > cur_score;vector<cv::Point2f> last_po;
+    vector<cv::Point2f> cur_pro;
+    vector<cv::Point2f> last_fea;
 
-    std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+    vector<int > cur_score;
+    vector<float> cur_gradient;
+
+
+
+    /// 在跟踪之前设置当前帧的位姿初始值是上一阵的位姿
+//    CurrentFrame->SetPose(mVelocity*LastFrame.Tcw);
+//    cout<<mVelocity<<endl;
+
+    cv::Mat Rcw=CurrentFrame->Rcw;
+    cv::Mat tcw=CurrentFrame->tcw;
+
+    int matchess=0;
+    int good=0;
+    int k_bad=0;
+    int class_bad=0;
+    int zzz=0;
+    int uuu=0;
+    int vvv=0;
+
     for (int i = 0; i <LastFrame.N ; ++i) {
-
-      cv::circle(LastFrame.leftimg,LastFrame.keypoints_l[i].pt,5,cv::Scalar(0,0,256),-1);
         mappoint *mp=LastFrame.MapPoints[i];
-        if(mp)
+
+        if(mp&&!mp->bad)
         {
+            cv::circle(LastFrame.detectimg,LastFrame.keypoints_l[i].pt,5,cv::Scalar(0,0,256),-1);
+            cv::Mat Pw=mp->worldpos;
+            cv::Mat Pc=Rcw*Pw+tcw;
+            float fx=K.at<float>(0,0);
+            float fy=K.at<float>(0,2);
+            float cx=K.at<float>(1,1);
+            float cy=K.at<float>(1,2);
+
+            if(Pc.at<float>(2)<0)
+            {
+                zzz++;
+//                continue;
+            }
+
+            float u=fx*Pw.at<float>(0,0)/Pw.at<float>(2,0)+cx;
+            float v=fy*Pw.at<float>(1,0)/Pw.at<float>(2,0)+cy;
+
+            if(u<0||u>CurrentFrame->width)
+            {
+                uuu++;
+//                continue;
+            }
+
+
+
+            if(v<0||v>CurrentFrame->height)
+            {
+               vvv++;
+//                continue;
+            }
+
+            last_fea.push_back(LastFrame.keypoints_l[i].pt);
+            cur_pro.push_back(cv::Point2f(u,v));
+//            cv::circle(CurrentFrame->detectimg,cv::Point2f(u,v),10,cv::Scalar(0,256,0),1);
+
+            bool dynamic=false;
             vector<cv::KeyPoint> KP=CurrentFrame->keypoints_l;
             vector<cv::Point2f> KP_r=CurrentFrame->keypoints_r;
 
@@ -54,27 +110,9 @@ int pnpmatch::poseEstimationPnP(frame *CurrentFrame,frame &LastFrame,cv::Mat &K)
 
             for (int j = 0; j <KP.size() ; ++j)
             {
-                bool dynamic=false;
-                cv::circle(CurrentFrame->leftimg,KP[j].pt,5,cv::Scalar(0,0,256),-1);
+                cv::circle(CurrentFrame->detectimg,KP[j].pt,5,cv::Scalar(0,0,256),-1);
                 mappoint *mp_j=CurrentFrame->MapPoints[j];
                 if(mp_j)
-                    continue;
-
-                for (int k = 0; k < CurrentFrame->boxes.size(); ++k) {
-
-                    int x0=CurrentFrame->boxes[k].tl().x;
-                    int y0=CurrentFrame->boxes[k].tl().y;
-                    int x1=CurrentFrame->boxes[k].br().x;
-                    int y1=CurrentFrame->boxes[k].br().y;
-                    if(KP[j].pt.x>x0&&KP[j].pt.x<x1&&KP[j].pt.y>y0&&KP[j].pt.y<y1)
-                    {
-                        dynamic=true;
-//                        cout<<"dynamic"<<endl;
-                        break;
-                    }
-                }
-
-                if(dynamic)
                     continue;
 
                 const cv::Mat &d = CurrentFrame->f_descriptor.row(j);
@@ -89,43 +127,129 @@ int pnpmatch::poseEstimationPnP(frame *CurrentFrame,frame &LastFrame,cv::Mat &K)
             }
             cv::Point2f cur=CurrentFrame->keypoints_l[bestIdx2].pt;
             cv::Point2f last=LastFrame.keypoints_l[i].pt;
+            cv::Point2f k_point=cv::Point2f(cur.x,cur.y+CurrentFrame->leftimg.rows)-last;
             CurrentFrame->match_score[i]=(float(secondBestDist)/float(bestDist));
 
-            bool pp1=bestDist<30;
-            bool pp3=bestDist<55&&CurrentFrame->match_score[i]>1.25;// 最好参数
+            float gradient=0;
+            bool pp1;
+            bool pp3;
+            pp1=bestDist<30;
+            pp3=bestDist<55&&CurrentFrame->match_score[i]>1.25;// 最好参数
+
             if(pp1||pp3)
             {
-                cur_po.push_back(cur);
-                cur_score.push_back(bestDist);
-                last_po.push_back(last);
-                CurrentFrame->MapPoints[bestIdx2]=mp;
-                matches++;
-                mp->AddObservation(CurrentFrame,bestIdx2);
+                good++;
+                if(k_point.x!=0)
+                  gradient=k_point.y/k_point.x;
+                 else
+                    gradient=99999;
+
+                if((gradient<0&&gradient>-2)||gradient>0&&gradient<2)
+                {
+                    cur_gradient.push_back(gradient);
+                    k_bad++;
+                    continue;
+                }
+
+                for (int k = 0; k < CurrentFrame->offline_box.size(); ++k) {
+                    int left=CurrentFrame->offline_box[k][0];
+                    int right=CurrentFrame->offline_box[k][1];
+                    int top=CurrentFrame->offline_box[k][2];
+                    int bottom=CurrentFrame->offline_box[k][3];
+                    if(cur.x>left-5&&cur.x<right+5&&cur.y>top-5&&cur.y<bottom+5)
+                    {
+                        dynamic=true;
+                        break;
+                    }
+                }
+
+                //// disable following lines if using offline semantic ////
+//                for (int k = 0; k < CurrentFrame->boxes.size(); ++k) {
+//                    int x0=CurrentFrame->boxes[k].tl().x;
+//                    int y0=CurrentFrame->boxes[k].tl().y;
+//                    int x1=CurrentFrame->boxes[k].br().x;
+//                    int y1=CurrentFrame->boxes[k].br().y;
+//                    if(cur.x>x0&&cur.x<x1&&cur.y>y0&&cur.y<y1)
+//                    {
+//                        if(CurrentFrame->id<=1)
+//                            CurrentFrame->DY_keypoints.push_back(cur);
+//                        dynamic=true;
+//                        break;
+//                    }
+//                }
+
+                if(dynamic)
+                {
+                    mp->bad=true;
+                    class_bad++;
+                    continue;
+                }
+                else
+                {
+                    matchess++;
+                    last_po.push_back(last);
+                    cur_po.push_back(cur);
+                    cur_score.push_back(bestDist);
+                    CurrentFrame->MapPoints[bestIdx2]=mp;
+                    mp->AddObservation(CurrentFrame,bestIdx2);
+                }
             }
         }
     }
-    std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-    double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
 
-    int h=LastFrame.leftimg.rows;
-    int w=LastFrame.leftimg.cols;
+    cout<<"匹配点:"<<good<<"~~"<<matchess<<endl;
+    int h=LastFrame.detectimg.rows;
+    int w=LastFrame.detectimg.cols;
 
-    LastFrame.leftimg.copyTo(outImg.rowRange(0,h));
-    CurrentFrame->leftimg.copyTo(outImg.rowRange(h+1,outImg.rows));
-//
-    for (int k = 0; k <cur_po.size() ; ++k) {
-//        if(cur_score[k]>50)
-//        {
-//            cv::putText(outImg,to_string(cur_score[k]),last_po[k],cv::FONT_HERSHEY_PLAIN,1,cv::Scalar(255,0,0),1,8);
-//            cv::putText(outImg,to_string(cur_score[k]),last_po[k],cv::FONT_HERSHEY_PLAIN,1,cv::Scalar(255,0,0),1,8);
-            cv::line(outImg,last_po[k],cv::Point2f(cur_po[k].x,CurrentFrame->leftimg.rows+cur_po[k].y),cv::Scalar(0,256,0));
-//        if(CurrentFrame->id==467)
-//            cout<<cur_po[k]<<endl;
-//        }
+    LastFrame.detectimg.copyTo(outImg.rowRange(0,h));
+    CurrentFrame->detectimg.copyTo(outImg.rowRange(h+1,outImg.rows));
+
+    for (int kk = 0; kk <cur_po.size() ; ++kk) {
+            cv::line(outImg,last_po[kk],cv::Point2f(cur_po[kk].x,CurrentFrame->detectimg.rows+cur_po[kk].y),cv::Scalar(0,256,0));///bgr
 
     }
-//    cv::imshow("result",outImg);
-//    cv::waitKey(100);
+//    for (int pp = 0; pp <cur_pro.size() ; ++pp) {
+//        cv::line(outImg,last_fea[pp],cv::Point2f(cur_pro[pp].x,CurrentFrame->detectimg.rows+cur_pro[pp].y),cv::Scalar(256,0,0));///bgr
+//
+//    }
+
+    vector<cv::Point3f> pts3d;
+    vector<cv::Point2f> pts2d;
+    vector<int> pts2d_index;
+
+    for (int j = 0; j <CurrentFrame->N ; ++j) {
+        mappoint *mapp=CurrentFrame->MapPoints[j];
+        if(mapp)
+        {
+            pts2d_index.push_back(j);
+            pts2d.push_back ( CurrentFrame->keypoints_l[j].pt );
+            pts3d.push_back( cv::Point3f( mapp->worldpos.at<float>(0,0), mapp->worldpos.at<float>(1,0), mapp->worldpos.at<float>(2,0)));
+        }
+    }
+
+    cv::Mat rvec, tvec, inliers;
+    cv::solvePnPRansac ( pts3d, pts2d, K, cv::Mat(), rvec, tvec, false, 100, 8.0, 0.99, inliers );////double
+
+    int num_inliers_ = inliers.rows;
+    inlier_ratio=(float)num_inliers_/(float)pts2d.size();
+    cout<<"内点比例:"<<inlier_ratio<<endl;
+//    if(CurrentFrame->id>595)
+//    {
+        cv::imshow("result",outImg);
+        cv::waitKey(0);
+//    }
+
+    cv::Mat Cur_Rcw(3,3,CV_32F);
+    cv::Rodrigues(rvec, Cur_Rcw);
+
+    cv::Mat Tcl;
+    Tcl=(cv::Mat_<float>(4,4)<<
+                             Cur_Rcw.at<double>(0,0),Cur_Rcw.at<double>(0,1),Cur_Rcw.at<double>(0,2),tvec.at<double>(0,0),
+            Cur_Rcw.at<double>(1,0),Cur_Rcw.at<double>(1,1),Cur_Rcw.at<double>(1,2),tvec.at<double>(1,0),
+            Cur_Rcw.at<double>(2,0),Cur_Rcw.at<double>(2,1),Cur_Rcw.at<double>(2,2),tvec.at<double>(2,0),
+            0,0,0,1);
+
+    CurrentFrame->SetPose(Tcl*CurrentFrame->Tcw);
 
     return inlier_ratio;
 
@@ -153,7 +277,7 @@ int pnpmatch::poseEstimationlocalmap(frame *CurrentFrame,set<mappoint*> &localma
 
             for (int j = 0; j <KP.size() ; ++j) {
                 mappoint *mp_j=CurrentFrame->MapPoints[j];
-                if(mp_j)
+                if(mp_j&&!mp_j->bad)
                     continue;
 
                 const cv::Mat &d = CurrentFrame->f_descriptor.row(j);
@@ -176,4 +300,34 @@ int pnpmatch::poseEstimationlocalmap(frame *CurrentFrame,set<mappoint*> &localma
             }
         }
     }
+
+    vector<cv::Point3f> pts3d;
+    vector<cv::Point2f> pts2d;
+    vector<int> pts2d_index;
+
+    for (int j = 0; j <CurrentFrame->N ; ++j) {
+        mappoint *mapp=CurrentFrame->MapPoints[j];
+        if(mapp)
+        {
+            pts2d_index.push_back(j);
+            pts2d.push_back ( CurrentFrame->keypoints_l[j].pt );
+            pts3d.push_back( cv::Point3f( mapp->worldpos.at<float>(0,0), mapp->worldpos.at<float>(1,0), mapp->worldpos.at<float>(2,0)));
+        }
+    }
+
+    cv::Mat rvec, tvec, inliers;
+    cv::solvePnPRansac ( pts3d, pts2d, K, cv::Mat(), rvec, tvec, false, 100, 8.0, 0.99, inliers );////double
+
+
+    cv::Mat Cur_Rcw(3,3,CV_32F);
+    cv::Rodrigues(rvec, Cur_Rcw);
+
+    cv::Mat Tcl;
+    Tcl=(cv::Mat_<float>(4,4)<<
+                             Cur_Rcw.at<double>(0,0),Cur_Rcw.at<double>(0,1),Cur_Rcw.at<double>(0,2),tvec.at<double>(0,0),
+            Cur_Rcw.at<double>(1,0),Cur_Rcw.at<double>(1,1),Cur_Rcw.at<double>(1,2),tvec.at<double>(1,0),
+            Cur_Rcw.at<double>(2,0),Cur_Rcw.at<double>(2,1),Cur_Rcw.at<double>(2,2),tvec.at<double>(2,0),
+            0,0,0,1);
+
+    CurrentFrame->SetPose(Tcl*CurrentFrame->Tcw);
 }

@@ -21,15 +21,13 @@ class Tracking
 public:
     Tracking(const string &strSettingPath);
     void init();
-    void Track( cv::Mat &imLeft,  cv::Mat &imRight,cv::Mat &imdepth,double &timestamp,cv::Mat &K, float &bf,ofstream &f,ofstream &f2,pangolin::OpenGlMatrix &Twc_M);
+    void Track( cv::Mat &imLeft,  cv::Mat &imRight,cv::Mat &imdepth,cv::Mat &img_detect,double &timestamp,cv::Mat &K,
+                float &bf,ofstream &f,ofstream &f2,pangolin::OpenGlMatrix &Twc_M,vector<vector<int>> &detection_box);
+    void GetVelocity();
     void Tracklastframe();
     void Tracklocalmap();
     void SaveTrajectoryAndDraw(ofstream &f,ofstream &f2);
     void GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M);
-    frame* Getcurrentframe();
-    void Setsemanticer(Semantic* ser);
-    //bool needkeyframe();
-    //void createkeyframe();
 
 public:
     Semantic* Semanticer;
@@ -42,6 +40,8 @@ public:
     float bf;
     bool local;
     static std::set<mappoint*> LocalMapPoints;
+
+    cv::Mat Velocity;
 };
 
 #endif

@@ -34,6 +34,7 @@ Tracking::Tracking(const string &strSettingPath):local(false)//// 成员变量�
     bK.at<float>(1,2) = cy;
     bK.copyTo(K);
 
+
     bf = fSettings["Camera.bf"];
 
 }
@@ -42,30 +43,48 @@ void Tracking::init()
 {
     bool dynamic=false;
     currentframe->SetPose(cv::Mat::eye(4,4,CV_32F));
+    Velocity=cv::Mat::eye(4,4,CV_32F);
 
     for (int i = 0; i <currentframe->N ; ++i) {
         const float u = currentframe->keypoints_l[i].pt.x;
         const float v = currentframe->keypoints_l[i].pt.y;
         const float z = currentframe->depthimg.at<float>(v,u);
 
-        if(currentframe->boxes.size()!=0)
+        if(currentframe->offline_box.size()!=0)
         {
-            for (int j = 0; j < currentframe->boxes.size(); ++j) {
+            for (int j = 0; j < currentframe->offline_box.size(); ++j) {
 
-                int x0=currentframe->boxes[j].tl().x;
-                int y0=currentframe->boxes[j].tl().y;
-                int x1=currentframe->boxes[j].br().x;
-                int y1=currentframe->boxes[j].br().y;
-                if(u>x0&&u<x1&&v>y0&&v<y1)
+                int left=currentframe->offline_box[j][0];
+                int right=currentframe->offline_box[j][1];
+                int top=currentframe->offline_box[j][2];
+                int bottom=currentframe->offline_box[j][3];
+                if(u>left-5&&u<right+5&&v>top-5&&v<bottom+5)
                 {
                     dynamic=true;
                     break;
                 }
             }
          }
+
+        //// disable following lines if using offline semantic ////
+//        if(currentframe->boxes.size()!=0)
+//        {
+//            for (int j = 0; j < currentframe->boxes.size(); ++j) {
+//
+//                int x0=currentframe->boxes[j].tl().x;
+//                int y0=currentframe->boxes[j].tl().y;
+//                int x1=currentframe->boxes[j].br().x;
+//                int y1=currentframe->boxes[j].br().y;
+//                if(u>x0&&u<x1&&v>y0&&v<y1)
+//                {
+//                    currentframe->DY_keypoints.push_back(cv::Point2f(u,v));
+//                    dynamic=true;
+//                    break;
+//                }
+//            }
+//         }
         if(z>0&&!dynamic)
         {
-
             cv::Mat x3D=currentframe->UnprojectStereo(u,v,z);
             mappoint* newmp=new mappoint(x3D,currentframe,i);////什么时候定义*,*的时候是->
             newmp->AddObservation(currentframe,i);
@@ -75,46 +94,7 @@ void Tracking::init()
             currentframe->MapPoints[i]=newmp;
         }
     }
-
-    lastframe=frame(currentframe);
 }
-
-//bool Tracking::needkeyframe()
-//{
-//    if(frame_num%10==0)
-//        return true;
-//}
-
-//void Tracking::createkeyframe()//// 创建关键帧，为关键帧初始化新的地图点，之前有匹配上的不用，保证每一个特征点对应一个地图点
-//{
-//
-//    keyframe pKF = keyframe(currentframe,kf_num);
-//    kf_num++;
-//    referenceKF = pKF;
-//    currentframe.referenceKF=pKF;
-//
-//    //// mCurrentFrame.UpdatePoseMatrices();
-//    for (int i = 0; i <currentframe.N ; ++i) {
-//        if(!currentframe.MapPoints[i]&&currentframe.MapPoints[i]->observation_num>2)
-//            continue;
-//
-//        currentframe.MapPoints[i]=NULL;//// 清除有地图点但是观测次数少的
-//        const float u = currentframe.keypoints_l[i].pt.x;
-//        const float v = currentframe.keypoints_l[i].pt.y;
-//        const float z = currentframe.depthimg.at<float>(u,v);
-//
-//        if(z>0)
-//        {
-//            cv::Mat x3D=currentframe.UnprojectStereo();
-//            mappoint *newmp=new mappoint(x3D,i);
-//            newmp->computedescriptor();
-//            Map_.insertmappoint(newmp);
-//            currentframe.MapPoints[i]=newmp;
-//        }
-//
-//    }
-//    lastKF = pKF;
-//}
 
 void Tracking::Tracklocalmap()
 {
@@ -122,6 +102,14 @@ void Tracking::Tracklocalmap()
 
 }
 
+void::Tracking::GetVelocity()
+{
+    cv::Mat LastTwc = cv::Mat::eye(4,4,CV_32F);
+    lastframe.Rwc.copyTo(LastTwc.rowRange(0,3).colRange(0,3));
+    lastframe.twc.copyTo(LastTwc.rowRange(0,3).col(3));
+    Velocity = currentframe->Tcw*LastTwc;
+
+}
 void Tracking::Tracklastframe()
 {
     float inlier_ratio=0;
@@ -129,45 +117,10 @@ void Tracking::Tracklastframe()
         init();
 
     else
+        inlier_ratio=pnpmatch::poseEstimationPnP(currentframe,lastframe,LocalMapPoints,Velocity,K);
+
+//    if(inlier_ratio<0.5)/// solvepnp 重投影误差设置为0.6
 //        Tracklocalmap();
-        pnpmatch::poseEstimationPnP(currentframe,lastframe,K);
-
-    std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-    vector<cv::Point3f> pts3d;
-    vector<cv::Point2f> pts2d;
-    vector<int> pts2d_index;
-
-    for (int j = 0; j <currentframe->N ; ++j) {
-        mappoint *mapp=currentframe->MapPoints[j];
-        if(mapp)
-        {
-            pts2d_index.push_back(j);
-            pts2d.push_back ( currentframe->keypoints_l[j].pt );
-            pts3d.push_back( cv::Point3f( mapp->worldpos.at<float>(0,0), mapp->worldpos.at<float>(1,0), mapp->worldpos.at<float>(2,0)));
-        }
-    }
-
-    cv::Mat rvec, tvec, inliers;
-    cv::solvePnPRansac ( pts3d, pts2d, K, cv::Mat(), rvec, tvec, false, 100, 1.0, 0.99, inliers );////double
-    std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-    double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
-
-    int num_inliers_ = inliers.rows;
-    inlier_ratio=(float)num_inliers_/(float)pts2d.size();
-
-//    if(inlier_ratio<0.2)
-//        cout<<"内点比例："<<inlier_ratio<<"  "<<num_inliers_<<"  "<<pts2d.size()<<endl;
-    cv::Mat Cur_Rcw(3,3,CV_32F);
-    cv::Rodrigues(rvec, Cur_Rcw);
-
-    cv::Mat Tcl;
-    Tcl=(cv::Mat_<float>(4,4)<<
-                             Cur_Rcw.at<double>(0,0),Cur_Rcw.at<double>(0,1),Cur_Rcw.at<double>(0,2),tvec.at<double>(0,0),
-            Cur_Rcw.at<double>(1,0),Cur_Rcw.at<double>(1,1),Cur_Rcw.at<double>(1,2),tvec.at<double>(1,0),
-            Cur_Rcw.at<double>(2,0),Cur_Rcw.at<double>(2,1),Cur_Rcw.at<double>(2,2),tvec.at<double>(2,0),
-            0,0,0,1);
-
-    currentframe->SetPose(Tcl*currentframe->Tcw);
 
     Optimizer::PoseOptimization(currentframe);
 }
@@ -190,7 +143,7 @@ void  Tracking::SaveTrajectoryAndDraw(ofstream &f,ofstream &f2)
     if(frame_num>0)
     {
         View::DrawGraph(lastframe,currentframe);
-//        View::DrawMappoints(LocalMapPoints);
+        View::DrawMappoints(LocalMapPoints,frame_num);
         pangolin::FinishFrame();
     }
 }
@@ -228,25 +181,54 @@ void Tracking::GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M)
         M.SetIdentity();
 }
 
-frame* Tracking::Getcurrentframe()
-{
-    return currentframe;
-}
 
-void Tracking::Setsemanticer(Semantic* ser)
-{
-    Semanticer=ser;
-}
-
- void Tracking::Track( cv::Mat &imLeft, cv::Mat &imRight,cv::Mat &imdepth, double &timestamp,cv::Mat &K, float &bf,ofstream &f,ofstream &f2,pangolin::OpenGlMatrix &Twc_M)
+ void Tracking::Track( cv::Mat &imLeft, cv::Mat &imRight,cv::Mat &imdepth, cv::Mat &img_detect,double &timestamp,cv::Mat &K,
+                       float &bf,ofstream &f,ofstream &f2,pangolin::OpenGlMatrix &Twc_M,vector<vector<int>> &detection_box)
 {
 
-    currentframe=new frame(imLeft,imRight,imdepth,timestamp,K,bf);
+    currentframe=new frame(imLeft,imRight,imdepth,img_detect,timestamp,K,bf,detection_box);
 
-    Semanticer->Insertframe(currentframe);
+    //// disable this line if using offline semantic ////
+//    Semanticer->Insertframe(currentframe);
+
+    //// LK tracking ////
+//
+//    cout<<"上一帧："<<lastframe.DY_keypoints.size()<<endl;
+//    if(!lastframe.DY_keypoints.empty())
+//        cv::calcOpticalFlowPyrLK(lastframe.leftimg,currentframe->leftimg,lastframe.DY_keypoints,currentframe->LK_keypoints,lastframe.status,lastframe.error);
+//
+//
+//    for ( auto kp:currentframe->LK_keypoints )
+//        cv::circle(currentframe->leftimg, kp, 10, cv::Scalar(0, 240, 0), 1);/// 不直接在原图上画
+//
+//    for ( auto kp2:lastframe.DY_keypoints )
+//        cv::circle(lastframe.leftimg, kp2, 10, cv::Scalar(0, 240, 0), 1);/// 不直接在原图上画
+//
+//
+//    int ii=0;
+//    int count=0;
+//    for ( auto iter=lastframe.DY_keypoints.begin(),iter2=currentframe->LK_keypoints.begin(); iter!=lastframe.DY_keypoints.end(),iter2!=currentframe->LK_keypoints.end(); ii++)
+//    {
+//        if ( lastframe.status[ii] == 0 )
+//        {
+//            iter = lastframe.DY_keypoints.erase(iter);
+//            iter2 = currentframe->LK_keypoints.erase(iter2);
+//            count++;
+//            continue;
+//        }
+//        iter++;
+//        iter2++;
+//    }
+//
+//    cout<<"删除："<<count<<endl;
+//
+//
+//    for (auto kp:currentframe->LK_keypoints) {
+//        currentframe->DY_keypoints.push_back(kp);
+//    }
 
     currentframe->featuredetect(imLeft);
-    currentframe->dispimg=currentframe->ElasMatch(imLeft,imRight);//// SGBM计算的CV_16s，转化为CV_8U
+    currentframe->dispimg=currentframe->ElasMatch(imLeft,imRight);//// SGBM计算的CV_16s，转化为CV_8U,深度滤波???
     currentframe->computekeypoint_r();
     currentframe->disp2Depth(bf);
     currentframe->id=frame_num;
@@ -255,11 +237,32 @@ void Tracking::Setsemanticer(Semantic* ser)
 
     SaveTrajectoryAndDraw(f,f2);
     GetCurrentOpenGLCameraMatrix(Twc_M);
-
+     if(frame_num>0)
+         GetVelocity();
     lastframe = frame(currentframe);
     lastframe.createmappoint(LocalMapPoints);
+     if(frame_num>=5)
+     {
+         for (set<mappoint*>::iterator it = LocalMapPoints.begin(); it != LocalMapPoints.end(); )
+         {
+             mappoint *mp_2=*it;
+             if(mp_2->create_id<=frame_num-5)
+                 LocalMapPoints.erase(it++);//// 不能使用删除*it,也不能在for加it++,必须分着写it++
+                 ////  *it = static_cast<mappoint*>(NULL);好像更节约时间
+             else
+                 it++;
+         }
+     }
+//     int numm=0;
+//     for (set<mappoint*>::iterator it = LocalMapPoints.begin(); it != LocalMapPoints.end(); ++it)
+//     {
+//         numm++;
+//         mappoint *mp_2=*it;
+//        cout<<mp_2->create_id<<" ";
+//         if(numm%10==0)
+//             cout<<endl;
+//     }
     frame_num++;
-
 }
 
 

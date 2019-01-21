@@ -17,17 +17,18 @@ void View::DrawGraph(frame &lastframe,frame *currentframe)
     glEnd();
 }
 
-void View::DrawMappoints(set<mappoint*> &spRefMPs)
+void View::DrawMappoints(set<mappoint*> &spRefMPs,int id)
 {
     cout<<spRefMPs.size()<<endl;
     glPointSize(2);
     glBegin(GL_POINTS);
-    glColor3f(1.0,0.0,0.0);
+
+    glColor3f(1 - (float) id / 1101, 0.0f, (float) id / 1101);
 
     for(set<mappoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++)
     {
+
         cv::Mat pos = (*sit)->GetWorldPos();
-//        cout<<pos<<endl;
         glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
     }
     glEnd();

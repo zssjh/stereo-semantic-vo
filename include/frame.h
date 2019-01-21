@@ -11,6 +11,7 @@
 #include <vector>
 #include <mappoint.h>
 #include <set>
+#include <list>
 #include <Thirdparty/libelas/src/elas.h>
 #include "YOLOv3SE.h"
 
@@ -24,7 +25,7 @@ class frame
 public: ////不声明默认是private
      frame();
      frame(frame *frame);//// 这个参数必须是const类型，否则会找不到正确的构造函数定义
-     frame( cv::Mat &imLeft,  cv::Mat &imRight, cv::Mat &imdepth,double &timestamp,cv::Mat &K,float &bf);
+     frame( cv::Mat &imLeft,  cv::Mat &imRight, cv::Mat &imdepth,cv::Mat &img_detect,double &timestamp,cv::Mat &K,float &bf,vector<vector<int>> &detection_box);
 
      void SetPose(cv::Mat mTcw);
      void featuredetect( cv::Mat &img);
@@ -41,6 +42,7 @@ public:
     long int id;
     cv::Mat leftimg,rightimg;
     cv::Mat dispimg,depthimg;
+    cv::Mat detectimg;
     vector<cv::KeyPoint> keypoints_l;
     vector<cv::Point2f> keypoints_r;
     cv::Mat f_descriptor;
@@ -50,7 +52,11 @@ public:
     std::vector<BoxSE> boxes;
     bool have_detected;
 
+    vector<unsigned char> status;
+    vector<float> error;
     //keyframe referenceKF;
+
+    vector<vector<int>> offline_box;
 
     float width;
     float height;

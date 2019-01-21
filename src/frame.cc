@@ -19,16 +19,17 @@ frame::frame()
 
 frame::frame( frame *mframe):K(mframe->K.clone()),id(mframe->id),f_descriptor(mframe->f_descriptor.clone()),bf(mframe->bf),width(mframe->width),
                                   height(mframe->height),keypoints_l(mframe->keypoints_l),N(mframe->N), MapPoints(mframe->MapPoints),
-                             depthimg(mframe->depthimg.clone()),dispimg(mframe->dispimg.clone()),leftimg(mframe->leftimg), rightimg(mframe->rightimg),
+                             depthimg(mframe->depthimg.clone()),dispimg(mframe->dispimg.clone()),leftimg(mframe->leftimg), rightimg(mframe->rightimg),detectimg(mframe->detectimg),
                              fx(mframe->fx),fy(mframe->fy),cx(mframe->cx),cy(mframe->cy),inlier(mframe->inlier),match_score(mframe->match_score),timestamp(mframe->timestamp),
-                             keypoints_r(mframe->keypoints_r),boxes(mframe->boxes),have_detected(mframe->have_detected)
+                             keypoints_r(mframe->keypoints_r),boxes(mframe->boxes),have_detected(mframe->have_detected),
+                             status(mframe->status), error(mframe->error),offline_box(mframe->offline_box)
 {
 
     if(!mframe->Tcw.empty())
         SetPose(mframe->Tcw);
 }
 
-frame::frame( cv::Mat &imLeft,  cv::Mat &imRight, cv::Mat &imdepth,double &time_tamp,cv::Mat &K_,float &mbf)
+frame::frame( cv::Mat &imLeft,  cv::Mat &imRight, cv::Mat &imdepth,cv::Mat &img_detect,double &time_tamp,cv::Mat &K_,float &mbf,vector<vector<int>> &detection_box)
 {
     std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     K=K_;
@@ -36,12 +37,14 @@ frame::frame( cv::Mat &imLeft,  cv::Mat &imRight, cv::Mat &imdepth,double &time_
     fy=K.at<float>(1,1);
     cx=K.at<float>(0,2);
     cy=K.at<float>(1,2);
-    boxes.reserve(10);
+    boxes.reserve(20);
     have_detected= false;
     timestamp=time_tamp;
     bf=mbf;
     leftimg=imLeft.clone();
     rightimg=imRight.clone();
+    detectimg=img_detect.clone();
+
     width=imLeft.cols;
     height=imLeft.rows;
     N = 500;
@@ -51,6 +54,8 @@ frame::frame( cv::Mat &imLeft,  cv::Mat &imRight, cv::Mat &imdepth,double &time_
     match_score=vector<float>(N,-1);
     depthimg = cv::Mat(height,width,CV_32F,-1);
     dispimg = cv::Mat(height,width,CV_32F,-1);
+    offline_box.assign(detection_box.begin(),detection_box.end());
+
     SetPose(cv::Mat::eye(4,4,CV_32F));
 }
 
@@ -174,30 +179,6 @@ void frame::disp2Depth( float bf)
             int id = i*width + j;
             if (!dispData[id])
                 continue;
-//            if(dispData[id]==-1&&i>=half_boxsize&&i<=height-half_boxsize&&j>=half_boxsize&&j<=width-half_boxsize)
-//            {
-//                float sum=0;int count=0;
-//                cout<<"[";
-//                for (int k = i-half_boxsize; k <=i+half_boxsize ; ++k) {
-//                    for (int l = j-half_boxsize; l <=j+half_boxsize ; ++l) {
-//                        float hole=dispMap.at<float>(k,l);
-//                        cout<<hole<<" ";
-//                        if(hole!=-1)
-//                        {
-//                            count++;
-//                            sum+=hole;
-//                        }
-//                    }
-//                }
-//                cout<<endl;
-//                if(count!=0)
-//                {
-//                    float hole_disp=sum/(float)count;
-//                    dispData[id]=hole_disp;
-//                    cout<<hole_disp<<endl;
-//                }
-//
-//            }
             depthData[id] = bf / dispData[id];
         }
     }
@@ -229,37 +210,53 @@ void frame::createmappoint(set<mappoint*> &localmap)
     int num=0;
     for (int i = 0; i < N; ++i) {
         mappoint *mp=MapPoints[i];
-        if (!mp)
+        if (!mp)//// 只为没有对应点的新建，有点但是bad的不新建
         {
             bool dynamic=false;
             num++;
-//            cout<<"creatmappoint"<<endl;
+
             const float u = keypoints_l[i].pt.x;
             const float v = keypoints_l[i].pt.y;
             const float z = depthimg.at<float>(v,u);
-            for (int j = 0; j < boxes.size(); ++j) {
 
-                int x0=boxes[j].tl().x;
-                int y0=boxes[j].tl().y;
-                int x1=boxes[j].br().x;
-                int y1=boxes[j].br().y;
-                if(u>x0&&u<x1&&v>y0&&v<y1)
+            for (int j = 0; j < offline_box.size(); ++j) {
+
+                int left=offline_box[j][0];
+                int right=offline_box[j][1];
+                int top=offline_box[j][2];
+                int bottom=offline_box[j][3];
+                if(u>left-5&&u<right+5&&v>top-5&&v<bottom+5)
                 {
                     dynamic=true;
                     break;
                 }
             }
+            //// disable following lines if using offline semantic ////
+//            for (int j = 0; j < boxes.size(); ++j) {
+//
+//                int x0=boxes[j].tl().x;
+//                int y0=boxes[j].tl().y;
+//                int x1=boxes[j].br().x;
+//                int y1=boxes[j].br().y;
+//                if(u>x0&&u<x1&&v>y0&&v<y1)
+//                {
+//                    if(id<=1)
+//                        DY_keypoints.push_back(cv::Point2f(u,v));
+//                    dynamic=true;
+//                    break;
+//                }
+//            }
 
             if(dynamic)
                 continue;
 
-            if (z > 0&&!dynamic) {
+            if (z > 0) {
                 cv::Mat x3D = UnprojectStereo(u,v,z);
                 mappoint *newmp = new mappoint(x3D,this,i);////什么时候定义*,*的时候是->
                 newmp->AddObservation(this,i);
                 newmp->create_id=id;
                 MapPoints[i] = newmp;
-//                localmap.insert(newmp);
+                localmap.insert(newmp);
             }
         }
     }

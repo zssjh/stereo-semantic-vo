@@ -16,7 +16,7 @@ public:
     static cv::Mat Cur_Tcw;
 public:
     static int DescriptorDistance(const cv::Mat &a, const cv::Mat &b);
-    static int poseEstimationPnP(frame *cframe,frame &frame,cv::Mat &K);
+    static int poseEstimationPnP(frame *cframe,frame &frame,set<mappoint*> &localmappoints,cv::Mat &mVelocity,cv::Mat &K);
     static int poseEstimationlocalmap(frame *CurrentFrame,set<mappoint*> &localmappoints,cv::Mat &K);
 
 };

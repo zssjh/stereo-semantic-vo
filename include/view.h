@@ -13,7 +13,7 @@ class View
 {
 public:
     static void DrawGraph(frame &lastframe,frame *currentframe);
-    static void DrawMappoints(set<mappoint*> &spRefMPs);
+    static void DrawMappoints(set<mappoint*> &spRefMPs,int id);
 
 };
 #endif //STEREO_VO_VIEW_H
