@@ -182,11 +182,7 @@ void frame::disp2Depth( float bf)
             depthData[id] = bf / dispData[id];
         }
     }
-//    insertDepth32f(depthMap);
     depthimg=depthMap;
-//    cv::waitKey(0);
-
-//    cv::imshow("disp2",depthMap);
 }
 
 cv::Mat frame::UnprojectStereo(const float &u,const float &v,const float &z)

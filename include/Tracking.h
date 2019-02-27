@@ -25,7 +25,6 @@ public:
                 float &bf,ofstream &f,ofstream &f2,pangolin::OpenGlMatrix &Twc_M,vector<vector<int>> &detection_box);
     void GetVelocity();
     void Tracklastframe();
-    void Tracklocalmap();
     void SaveTrajectoryAndDraw(ofstream &f,ofstream &f2);
     void GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M);
 

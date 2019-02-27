@@ -29,24 +29,14 @@ void Semantic::Run()
                 frame* cur=*sit;
                 cv::Mat img=cur->leftimg;
                 std::vector<BoxSE> boxes = detector.Detect(img, 0.8F);
-                //// kitti 0.8  118
-                //// kitti 0.85 181
-                //// kitti 0.75 131
-                //// kitti 0.5  161
-                //// coco  0.75 155
-                //// coco  0.7  176
-                //// coco  0.5  150 但是超级多错误检测
                 cur->boxes=boxes;
                 cur->have_detected=true;
                 int n = boxes.size();
                 for (int i = 0; i < n; i++) {
-//                    cout<<boxes[i].x<<"~"<<boxes[i].y<<"~"<<boxes[i].width<<"~"<<boxes[i].height<<endl;
                     cv::rectangle(img, boxes[i].tl(), boxes[i].br(), colors[boxes[i].m_class],2);
 
                     putText(img, boxes[i].m_class_name, boxes[i].tl(), cv::FONT_HERSHEY_PLAIN, 1.25, colors[boxes[i].m_class], 2);
                 }
-//                cv::imshow("11",img);
-//                cv::waitKey(100);
                 NewFrames.erase(sit++);
             }
 

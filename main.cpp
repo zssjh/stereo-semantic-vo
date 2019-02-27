@@ -125,7 +125,7 @@ int main(int argc, char **argv)
 //    pangolin::Var<float> menuDisplayPose_Y("menu.Pose:Y",false,false);
 //    pangolin::Var<float> menuDisplayPose_Z("menu.Pose:Z",false,false);
     pangolin::OpenGlRenderState s_cam(
-            pangolin::ProjectionMatrix(1200,768,500,500,100,100,0.01,1000),
+            pangolin::ProjectionMatrix(1200,768,500,500,10,10,0.01,1000),
             pangolin::ModelViewLookAt(0,-900,-10, 0,0,0,0.0,-1.0, 0.0)
     );
     pangolin::View& d_cam = pangolin::CreateDisplay()

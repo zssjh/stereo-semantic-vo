@@ -14,7 +14,6 @@ class mappoint
 {
 public:
     mappoint(cv::Mat &pos,frame *pFrame, int id);//// 构造函数，什么时候需要在cpp中定义{}
-    //void computedescriptor();
     cv::Point3f getPosition();
     cv::Mat GetWorldPos();
     void AddObservation( frame *fm, size_t idx);

@@ -96,12 +96,6 @@ void Tracking::init()
     }
 }
 
-void Tracking::Tracklocalmap()
-{
-    pnpmatch::poseEstimationlocalmap(currentframe,LocalMapPoints,K);
-
-}
-
 void::Tracking::GetVelocity()
 {
     cv::Mat LastTwc = cv::Mat::eye(4,4,CV_32F);
@@ -112,15 +106,12 @@ void::Tracking::GetVelocity()
 }
 void Tracking::Tracklastframe()
 {
-    float inlier_ratio=0;
     if(frame_num==0)
         init();
 
     else
-        inlier_ratio=pnpmatch::poseEstimationPnP(currentframe,lastframe,LocalMapPoints,Velocity,K);
+        pnpmatch::poseEstimationPnP(currentframe,lastframe,LocalMapPoints,Velocity,K);
 
-//    if(inlier_ratio<0.5)/// solvepnp 重投影误差设置为0.6
-//        Tracklocalmap();
 
     Optimizer::PoseOptimization(currentframe);
 }
@@ -143,7 +134,7 @@ void  Tracking::SaveTrajectoryAndDraw(ofstream &f,ofstream &f2)
     if(frame_num>0)
     {
         View::DrawGraph(lastframe,currentframe);
-        View::DrawMappoints(LocalMapPoints,frame_num);
+//        View::DrawMappoints(LocalMapPoints,frame_num);
         pangolin::FinishFrame();
     }
 }
@@ -241,27 +232,18 @@ void Tracking::GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M)
          GetVelocity();
     lastframe = frame(currentframe);
     lastframe.createmappoint(LocalMapPoints);
-     if(frame_num>=5)
+     if(frame_num>=4)
      {
          for (set<mappoint*>::iterator it = LocalMapPoints.begin(); it != LocalMapPoints.end(); )
          {
              mappoint *mp_2=*it;
-             if(mp_2->create_id<=frame_num-5)
+             if(mp_2->create_id<=frame_num-4)
                  LocalMapPoints.erase(it++);//// 不能使用删除*it,也不能在for加it++,必须分着写it++
                  ////  *it = static_cast<mappoint*>(NULL);好像更节约时间
              else
                  it++;
          }
      }
-//     int numm=0;
-//     for (set<mappoint*>::iterator it = LocalMapPoints.begin(); it != LocalMapPoints.end(); ++it)
-//     {
-//         numm++;
-//         mappoint *mp_2=*it;
-//        cout<<mp_2->create_id<<" ";
-//         if(numm%10==0)
-//             cout<<endl;
-//     }
     frame_num++;
 }
 

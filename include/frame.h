@@ -51,24 +51,19 @@ public:
     vector<bool> inlier;
     std::vector<BoxSE> boxes;
     bool have_detected;
-
     vector<unsigned char> status;
     vector<float> error;
     //keyframe referenceKF;
-
     vector<vector<int>> offline_box;
-
     float width;
     float height;
 
     //// 相机内参
-
     cv::Mat K;
     float fx;
     float fy;
     float cx;
     float cy;
-
     float bf;
 
     cv::Mat Tcw;
