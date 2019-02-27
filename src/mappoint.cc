@@ -34,7 +34,6 @@ cv::Mat mappoint::ComputeDistinctiveDescriptors() {
 
     for (map<frame *, int>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++) {
         frame *fm = mit->first;
-        cout << fm->id << "~~" << mit->second << "~~" << fm->f_descriptor.row(mit->second) << endl;
         vDescriptors.push_back(fm->f_descriptor.row(mit->second));
     }
 

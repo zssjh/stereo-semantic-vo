@@ -8,6 +8,7 @@
 #include <convert.h>
 #include <opencv/cxeigen.hpp>
 #include <Tracking.h>
+using namespace cv;
 
 cv::Mat pnpmatch::Cur_Tcw;
 int pnpmatch::DescriptorDistance(const cv::Mat &a, const cv::Mat &b)/// h文件中的static，在cpp文件中不用加
@@ -31,6 +32,11 @@ int pnpmatch::DescriptorDistance(const cv::Mat &a, const cv::Mat &b)/// h文件�
 
 int pnpmatch::poseEstimationPnP(frame *CurrentFrame,frame &LastFrame,set<mappoint*> &localmappoints,cv::Mat &mVelocity,cv::Mat &K)
 {
+    cv::Mat fundamental_matrix;
+    pnpmatch::poseEstimation2D_2D(CurrentFrame,LastFrame,K,fundamental_matrix);
+
+
+
     float inlier_ratio=0;
     cv::Mat outImg(CurrentFrame->detectimg.rows+LastFrame.detectimg.rows+1,CurrentFrame->detectimg.cols,CurrentFrame->detectimg.type());
     vector<cv::Point2f> cur_po;
@@ -87,8 +93,9 @@ int pnpmatch::poseEstimationPnP(frame *CurrentFrame,frame &LastFrame,set<mappoin
                     bestIdx2=j;
                 }
             }
-            cv::Point2f cur=CurrentFrame->keypoints_l[bestIdx2].pt;
-            cv::Point2f last=LastFrame.keypoints_l[i].pt;
+            cv::Point2f cur=CurrentFrame->keypoints_l[bestIdx2].pt;//////极线约束
+            cv::Point2f last=LastFrame.keypoints_l[i].pt;//////极线约束
+
             CurrentFrame->match_score[i]=(float(secondBestDist)/float(bestDist));
 
             if(bestDist<15)
@@ -98,10 +105,18 @@ int pnpmatch::poseEstimationPnP(frame *CurrentFrame,frame &LastFrame,set<mappoin
                     int right=CurrentFrame->offline_box[k][1];
                     int top=CurrentFrame->offline_box[k][2];
                     int bottom=CurrentFrame->offline_box[k][3];
-                    if(cur.x>left-5&&cur.x<right+5&&cur.y>top-5&&cur.y<bottom+5)
+                    if(cur.x>left-10&&cur.x<right+10&&cur.y>top-10&&cur.y<bottom+10)
                     {
-                        dynamic=true;
-                        break;
+                        double A = fundamental_matrix.at<double>(0, 0)*last.x + fundamental_matrix.at<double>(0, 1)*last.y + fundamental_matrix.at<double>(0, 2);
+                        double B = fundamental_matrix.at<double>(1, 0)*last.x + fundamental_matrix.at<double>(1, 1)*last.y + fundamental_matrix.at<double>(1, 2);
+                        double C = fundamental_matrix.at<double>(2, 0)*last.x + fundamental_matrix.at<double>(2, 1)*last.y + fundamental_matrix.at<double>(2, 2);
+                        double dd = fabs(A*cur.x + B*cur.y + C) / sqrt(A*A + B*B); //Epipolar constraints
+                        if (dd > 0.1)
+                        {
+                            dynamic=true;
+                            break;
+                        }
+
                     }
                 }
 
@@ -175,15 +190,12 @@ int pnpmatch::poseEstimationPnP(frame *CurrentFrame,frame &LastFrame,set<mappoin
 
             if(bestDist<30&&(float)secondBestDist/(float)bestDist>2)
             {
-                cout<<CurrentFrame->id-mp_local->create_id<<"~~"<<mp_local->observation_num<<endl;
                 nummm++;
                 CurrentFrame->MapPoints[bestIdx2]=mp_local;
                 mp_local->AddObservation(CurrentFrame,bestIdx2);
             }
         }
     }
-
-    cout<<"匹配点:"<<matches<<"~~~"<<nummm<<endl;
 
     int h=LastFrame.detectimg.rows;
     int w=LastFrame.detectimg.cols;
@@ -215,7 +227,6 @@ int pnpmatch::poseEstimationPnP(frame *CurrentFrame,frame &LastFrame,set<mappoin
 
     int num_inliers_ = inliers.rows;
     inlier_ratio=(float)num_inliers_/(float)pts2d.size();
-    cout<<"内点比例:"<<inlier_ratio<<endl;
 //    if(CurrentFrame->id>595)
 //    {
         cv::imshow("result",outImg);
@@ -236,5 +247,91 @@ int pnpmatch::poseEstimationPnP(frame *CurrentFrame,frame &LastFrame,set<mappoin
 
     return inlier_ratio;
 
+}
+
+void pnpmatch::find_feature_matches ( const cv::Mat& img_1, const cv::Mat& img_2,
+                                   std::vector<cv::KeyPoint>& keypoints_1,
+                                   std::vector<cv::KeyPoint>& keypoints_2,
+                                   std::vector<cv::DMatch >& matches )
+{
+    //-- 初始化
+    cv::Mat descriptors_1, descriptors_2;
+    // used in OpenCV3
+    cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create();
+    cv::Ptr<cv::DescriptorExtractor> descriptor = cv::ORB::create();
+    // use this if you are in OpenCV2
+    // Ptr<FeatureDetector> detector = FeatureDetector::create ( "ORB" );
+    // Ptr<DescriptorExtractor> descriptor = DescriptorExtractor::create ( "ORB" );
+    cv::Ptr<cv::DescriptorMatcher> matcher  = cv::DescriptorMatcher::create ( "BruteForce-Hamming" );
+    //-- 第一步:检测 Oriented FAST 角点位置
+    detector->detect ( img_1,keypoints_1 );
+    detector->detect ( img_2,keypoints_2 );
+
+    //-- 第二步:根据角点位置计算 BRIEF 描述子
+    descriptor->compute ( img_1, keypoints_1, descriptors_1 );
+    descriptor->compute ( img_2, keypoints_2, descriptors_2 );
+
+    //-- 第三步:对两幅图像中的BRIEF描述子进行匹配，使用 Hamming 距离
+    vector<cv::DMatch> match;
+    //BFMatcher matcher ( NORM_HAMMING );
+    matcher->match ( descriptors_1, descriptors_2, match );
+
+    //-- 第四步:匹配点对筛选
+    double min_dist=10000, max_dist=0;
+
+    //找出所有匹配之间的最小距离和最大距离, 即是最相似的和最不相似的两组点之间的距离
+    for ( int i = 0; i < descriptors_1.rows; i++ )
+    {
+        double dist = match[i].distance;
+        if ( dist < min_dist ) min_dist = dist;
+        if ( dist > max_dist ) max_dist = dist;
+    }
+
+
+    //当描述子之间的距离大于两倍的最小距离时,即认为匹配有误.但有时候最小距离会非常小,设置一个经验值30作为下限.
+    for ( int i = 0; i < descriptors_1.rows; i++ )
+    {
+        if ( match[i].distance <= max ( 2*min_dist, 30.0 ) )
+        {
+            matches.push_back ( match[i] );
+        }
+    }
+}
+
+int pnpmatch::poseEstimation2D_2D(frame *CurrentFrame,frame &LastFrame,cv::Mat &K,cv::Mat &fundamental_matrix)
+{
+   int box_size=CurrentFrame->offline_box.size();
+    vector<cv::DMatch> matches;
+    find_feature_matches(CurrentFrame->leftimg,LastFrame.leftimg,CurrentFrame->keypoints_l,LastFrame.keypoints_l,matches);
+
+    //-- 把匹配点转换为vector<Point2f>的形式
+    vector<Point2f> points1_background;
+    vector<Point2f> points2_background;
+
+    for ( int i = 0; i < ( int ) matches.size(); i++ )
+    {
+        bool dynamic=false;
+        Point2f cur  = CurrentFrame->keypoints_l[matches[i].queryIdx].pt;
+        Point2f last = LastFrame.keypoints_l[matches[i].trainIdx].pt;
+
+        for (int k = 0; k <box_size ; ++k) {
+            int left=CurrentFrame->offline_box[k][0];
+            int right=CurrentFrame->offline_box[k][1];
+            int top=CurrentFrame->offline_box[k][2];
+            int bottom=CurrentFrame->offline_box[k][3];
+            if(cur.x>left-10&&cur.x<right+10&&cur.y>top-10&&cur.y<bottom+10)
+            {
+                dynamic=true;
+                break;
+            }
+        }
+        if(!dynamic)
+        {
+            points1_background.push_back (cur);
+            points2_background.push_back (last);
+        }
+    }
+
+    fundamental_matrix = findFundamentalMat ( points1_background, points2_background, CV_FM_8POINT );
 }
 

@@ -110,7 +110,11 @@ void Tracking::Tracklastframe()
         init();
 
     else
+    {
         pnpmatch::poseEstimationPnP(currentframe,lastframe,LocalMapPoints,Velocity,K);
+
+    }
+
 
 
     Optimizer::PoseOptimization(currentframe);

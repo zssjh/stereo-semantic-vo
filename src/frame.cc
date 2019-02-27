@@ -75,6 +75,9 @@ void frame::featuredetect(cv::Mat &img)
 }
 
 
+
+
+
  cv::Mat frame::ElasMatch( cv::Mat &leftImage,cv::Mat &rightImage)
 {
     int numberOfDisparities = ((leftImage.rows / 8) + 15) & -16;////48 必须是16的倍数

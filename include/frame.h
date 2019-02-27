@@ -29,8 +29,9 @@ public: ////不声明默认是private
 
      void SetPose(cv::Mat mTcw);
      void featuredetect( cv::Mat &img);
+
      cv::Mat ElasMatch( cv::Mat &leftImage,cv::Mat &rightImage);
-    cv::Mat ElasMatch2( cv::Mat &leftImage,cv::Mat &rightImage);
+     cv::Mat ElasMatch2( cv::Mat &leftImage,cv::Mat &rightImage);
      void disp2Depth( float bf);
      cv::Mat UnprojectStereo(const float &u,const float &v,const float &z);
      void createmappoint(set<mappoint*> &localmap);
