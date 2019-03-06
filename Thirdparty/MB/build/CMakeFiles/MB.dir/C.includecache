@@ -1,0 +1,34 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/zss/stereo-semantic-vo/Thirdparty/MB/ctmf.c
+assert.h
+-
+math.h
+-
+stdlib.h
+-
+string.h
+-
+basetsd.h
+-
+stdint.h
+-
+emmintrin.h
+-
+mmintrin.h
+-
+mm_malloc.h
+-
+malloc.h
+-
+altivec.h
+-
+stdint.h
+-
+

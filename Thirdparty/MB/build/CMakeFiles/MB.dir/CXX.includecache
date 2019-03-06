@@ -1,0 +1,34 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/zss/stereo-semantic-vo/Thirdparty/MB/MSA.cpp
+opencv2/opencv.hpp
+-
+cstdio
+-
+cstring
+-
+algorithm
+-
+cmath
+-
+ctime
+-
+cstdlib
+-
+ctmf.h
+/home/zss/stereo-semantic-vo/Thirdparty/MB/ctmf.h
+MSA.h
+/home/zss/stereo-semantic-vo/Thirdparty/MB/MSA.h
+
+/home/zss/stereo-semantic-vo/Thirdparty/MB/MSA.h
+opencv2/opencv.hpp
+-
+
+/home/zss/stereo-semantic-vo/Thirdparty/MB/ctmf.h
+

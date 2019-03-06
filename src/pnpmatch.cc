@@ -111,6 +111,7 @@ int pnpmatch::poseEstimationPnP(frame *CurrentFrame,frame &LastFrame,set<mappoin
                         double B = fundamental_matrix.at<double>(1, 0)*last.x + fundamental_matrix.at<double>(1, 1)*last.y + fundamental_matrix.at<double>(1, 2);
                         double C = fundamental_matrix.at<double>(2, 0)*last.x + fundamental_matrix.at<double>(2, 1)*last.y + fundamental_matrix.at<double>(2, 2);
                         double dd = fabs(A*cur.x + B*cur.y + C) / sqrt(A*A + B*B); //Epipolar constraints
+                        cout<<dd<<endl;
                         if (dd > 0.1)
                         {
                             dynamic=true;

@@ -1,0 +1,3 @@
+/home/zss/stereo-semantic-vo/Thirdparty/MB/build/CMakeFiles/edit_cache.dir
+/home/zss/stereo-semantic-vo/Thirdparty/MB/build/CMakeFiles/rebuild_cache.dir
+/home/zss/stereo-semantic-vo/Thirdparty/MB/build/CMakeFiles/MB.dir

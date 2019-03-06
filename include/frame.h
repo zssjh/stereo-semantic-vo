@@ -31,7 +31,7 @@ public: ////不声明默认是private
      void featuredetect( cv::Mat &img);
 
      cv::Mat ElasMatch( cv::Mat &leftImage,cv::Mat &rightImage);
-     cv::Mat ElasMatch2( cv::Mat &leftImage,cv::Mat &rightImage);
+     cv::Mat MB( cv::Mat &left,cv::Mat &right);
      void disp2Depth( float bf);
      cv::Mat UnprojectStereo(const float &u,const float &v,const float &z);
      void createmappoint(set<mappoint*> &localmap);

@@ -5,10 +5,14 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui/highgui.hpp>  ////包含cv::imshow
 #include <assert.h>
-#include <Thirdparty/libelas/src/elas.h>
-#include <Thirdparty/libelas/src/image.h>
 #include <opencv2/calib3d.hpp>
 #include <chrono>
+
+//#include "Thirdparty/MB/MSA.cpp"
+#include "Thirdparty/MB/MSA.h"
+#include "Thirdparty/MB/ctmf.h"
+//#include <Thirdparty/libelas/src/elas.h>
+//#include <Thirdparty/libelas/src/image.h>
 
 using namespace cv;
 
@@ -75,7 +79,16 @@ void frame::featuredetect(cv::Mat &img)
 }
 
 
-
+cv::Mat frame::MB( cv::Mat &leftImage,cv::Mat &rightImage)
+{
+    cv::Mat disp_32f=cv::Mat(height,width,CV_32F,-1);
+//    int numberOfDisparities = ((leftImage.rows / 8) + 15) & -16;////48 必须是16的倍数
+    MSA solver;
+    cv::Mat disp_img = solver.solve(leftImage, rightImage, 59, 1, true);
+    disp_img.convertTo(disp_32f,CV_32F,1);
+    cout<<"111"<<endl;
+    return disp_32f;
+}
 
 
  cv::Mat frame::ElasMatch( cv::Mat &leftImage,cv::Mat &rightImage)
@@ -121,45 +134,6 @@ void frame::computekeypoint_r()
         ry=ly;
         keypoints_r.push_back(cv::Point2f(rx,ry));
     }
-}
-
-cv::Mat frame::ElasMatch2( cv::Mat &leftImage,cv::Mat &rightImage)
-{
-    cv::Mat disp_l,disp_r,disp8u_l,disp8u_r;
-    double minVal; double maxVal; //视差图的极值
-
-    // 计算视差
-    // generate disparity image using LIBELAS
-
-    int bd = 0;
-    const int32_t dims[3] = {leftImage.cols,leftImage.rows,leftImage.cols};
-    cv::Mat leftdpf = cv::Mat::zeros(cv::Size(leftImage.cols,leftImage.rows), CV_32F);
-    cv::Mat rightdpf = cv::Mat::zeros(cv::Size(leftImage.cols,leftImage.rows), CV_32F);
-    Elas::parameters param;
-    param.postprocess_only_left = false;
-    Elas elas(param);
-    elas.process(leftImage.data,rightImage.data,leftdpf.ptr<float>(0),rightdpf.ptr<float>(0),dims);
-
-    cv::Mat(leftdpf(cv::Rect(bd,0,leftImage.cols,leftImage.rows))).copyTo(disp_l);
-    cv::Mat(rightdpf(cv::Rect(bd,0,rightImage.cols,rightImage.rows))).copyTo(disp_r);
-//
-//    //-- Check its extreme values
-//    cv::minMaxLoc( disp_l, &minVal, &maxVal );
-//    cout<<"范围："<<maxVal-minVal<<endl;
-//
-//    //-- Display it as a CV_8UC1 image
-//    cout<<"type:"<<disp_l.type()<<endl;
-//    disp_l.convertTo(disp8u_l, CV_8U, 255/(maxVal - minVal));//(numberOfDisparities*16.)
-//
-//    cv::minMaxLoc( disp_r, &minVal, &maxVal );
-//
-//    //-- Display it as a CV_8UC1 image
-//    disp_r.convertTo(disp8u_r, CV_8U, 255/(maxVal - minVal));//(numberOfDisparities*16.)
-//
-//    cv::normalize(disp8u_l, disp8u_l, 0, 255, CV_MINMAX, CV_8UC1);    // obtain normalized image
-//    cv::normalize(disp8u_r, disp8u_r, 0, 255, CV_MINMAX, CV_8UC1);    // obtain normalized image
-    return disp_r;
-
 }
 
 void frame::disp2Depth( float bf)

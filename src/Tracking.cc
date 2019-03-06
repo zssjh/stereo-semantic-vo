@@ -223,7 +223,7 @@ void Tracking::GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M)
 //    }
 
     currentframe->featuredetect(imLeft);
-    currentframe->dispimg=currentframe->ElasMatch(imLeft,imRight);//// SGBM计算的CV_16s，转化为CV_8U,深度滤波???
+    currentframe->dispimg=currentframe->MB(imLeft,imRight);//// SGBM计算的CV_16s，转化为CV_8U,深度滤波???
     currentframe->computekeypoint_r();
     currentframe->disp2Depth(bf);
     currentframe->id=frame_num;
