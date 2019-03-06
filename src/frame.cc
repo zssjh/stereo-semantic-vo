@@ -83,10 +83,10 @@ cv::Mat frame::MB( cv::Mat &leftImage,cv::Mat &rightImage)
 {
     cv::Mat disp_32f=cv::Mat(height,width,CV_32F,-1);
 //    int numberOfDisparities = ((leftImage.rows / 8) + 15) & -16;////48 必须是16的倍数
-    MSA solver;
-    cv::Mat disp_img = solver.solve(leftImage, rightImage, 59, 1, true);
+    MSA* solver = new MSA();
+    cv::Mat disp_img = solver->solve(leftImage, rightImage, 48, 1, true);
     disp_img.convertTo(disp_32f,CV_32F,1);
-    cout<<"111"<<endl;
+//    cout<<"111"<<endl;
     return disp_32f;
 }
 
@@ -94,6 +94,7 @@ cv::Mat frame::MB( cv::Mat &leftImage,cv::Mat &rightImage)
  cv::Mat frame::ElasMatch( cv::Mat &leftImage,cv::Mat &rightImage)
 {
     int numberOfDisparities = ((leftImage.rows / 8) + 15) & -16;////48 必须是16的倍数
+    cout<<"视差个数"<<numberOfDisparities<<endl;
     cv::Mat disp;
     cv::Ptr<cv::StereoSGBM> sgbm = cv::StereoSGBM::create(0, 16, 3);
     sgbm->setPreFilterCap(63);
